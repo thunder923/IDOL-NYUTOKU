@@ -2,10 +2,11 @@
   <v-app>
     <v-main>
       <v-container>
-        <!-- ヘッダーエリア -->
+        <!-- ヘッダーエリア（タイトル ＋ 情報提供ボタン） -->
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">イベント一覧</h1>
           
+          <!-- Googleフォームへのリンクボタン -->
           <v-btn
             color="success"
             large
