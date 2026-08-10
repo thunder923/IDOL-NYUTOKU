@@ -2,36 +2,35 @@
   <v-app>
     <v-main>
       <v-container>
-        <!-- ヘッダーエリア（タイトル ＋ 情報提供ボタン） -->
-        <div class="d-flex justify-space-between align-center mb-6">
+        <!-- ヘッダーエリア：タイトル ＆ 情報提供ボタン -->
+        <div class="d-flex align-center justify-space-between mb-4">
           <h1 class="text-h4 font-weight-bold">イベント一覧</h1>
-          
-          <!-- Googleフォームへのリンクボタン -->
+
+          <!-- 情報提供ボタン -->
           <v-btn
-            color="success"
-            large
-            outlined
-            href="https://docs.google.com/forms/d/e/1FAIpQLScrP0oF42vhkNU1YUSLih_HJa30vbpd0FfXq5L19oX-DIK3Zg/viewform?usp=dialog"
+            :href="FORM_URL"
             target="_blank"
             rel="noopener noreferrer"
-            class="font-weight-bold"
+            color="primary"
+            elevation="2"
+            rounded
           >
-            <v-icon left>mdi-file-document-edit-outline</v-icon>
+            <v-icon left>mdi-pencil-plus</v-icon>
             情報提供はこちら
           </v-btn>
         </div>
-        
+
         <!-- ローディング表示 -->
         <div v-if="loading" class="text-center my-8">
           <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-          <p class="mt-4 grey--text text--darken-1">データを読み込んでいます...</p>
+          <p class="mt-4">データを読み込んでいます...</p>
         </div>
 
         <!-- カード一覧表示 -->
         <v-row v-else>
           <v-col
             v-for="event in events"
-            :key="event.eventName"
+            :key="event.id"
             cols="12"
             md="6"
           >
@@ -54,7 +53,9 @@ export default {
   data() {
     return {
       loading: true,
-      events: []
+      events: [],
+      // ↓ ここにGoogleフォームの短縮URL（https://forms.gle/...）を貼り付けます
+      FORM_URL: 'https://forms.gle/hPycTs6KY5iZ64mZ6'
     };
   },
   mounted() {
@@ -62,46 +63,35 @@ export default {
   },
   methods: {
     async fetchEvents() {
+      // ↓ ご自身のGAS URLに書き換えてください
       const GAS_URL = 'https://script.google.com/macros/s/AKfycbyarH7Ur__WCEiQmqZROgCp1_I2G2hnRkXbRn7ckXQMr5DNutkQN1g7CLBh4Jj2q4iZ/exec';
-      
+
       try {
         const response = await fetch(GAS_URL);
         const rawData = await response.json();
 
         const grouped = {};
         rawData.forEach(item => {
-          if (!item.eventName) return;
-          
-          if (!grouped[item.eventName]) {
-            grouped[item.eventName] = {
-              eventName: item.eventName,
+          if (!item.id && !item.eventName) return;
+
+          const key = item.id || item.eventName;
+
+          if (!grouped[key]) {
+            grouped[key] = {
+              id: key,
+              eventName: item.eventName || 'イベント名未設定',
               groups: []
             };
           }
 
-          const toArr = (v) => typeof v === 'string' ? v.split(',').map(s => s.trim()) : (Array.isArray(v) ? v : []);
-
-          const perfList = toArr(item.performers).filter(Boolean);
-          const stageList = toArr(item.stages).filter(Boolean);
-          const perkList = toArr(item.perks).filter(Boolean);
-          const timeList = toArr(item.time || item.times || item.timeSlot).filter(Boolean);
-
-          const maxLen = Math.max(perfList.length, stageList.length, perkList.length, timeList.length);
-
-          for (let i = 0; i < maxLen; i++) {
-            const p = perfList[i] || perfList[0] || '';
-            const s = stageList[i] || stageList[0] || '';
-            const k = perkList[i] || perkList[0] || '';
-            const t = timeList[i] || timeList[0] || '';
-
-            if (p || s || k || t) {
-              grouped[item.eventName].groups.push({
-                performer: p,
-                stage: s,
-                perk: k,
-                time: t
-              });
-            }
+          if (item.performers || item.time || item.stages || item.perks || item.url) {
+            grouped[key].groups.push({
+              performers: item.performers || item.performer || '出演者未設定',
+              stages: item.stages || item.stage || 'なし',
+              perks: item.perks || item.perk || 'なし',
+              time: item.time || '',
+              url: item.url || ''
+            });
           }
         });
 
