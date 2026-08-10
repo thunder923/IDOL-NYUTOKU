@@ -2,12 +2,13 @@
   <v-app>
     <v-main>
       <v-container>
+        <!-- ヘッダー（タイトル ＆ 全体用情報提供ボタン） -->
         <div class="d-flex justify-space-between align-center mb-4">
           <h1 class="text-h4 font-weight-bold">イベント一覧</h1>
           <v-btn
             color="primary"
             rounded
-            href="https://forms.gle/uoyWWfV6WPnThwtT7"
+            href="https://forms.gle/SbmwpBNLbBGUC3v39"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -56,21 +57,25 @@ export default {
     this.fetchEvents();
   },
   methods: {
-    // 括弧や引用符をきれいにするクリーニング関数
+    // 括弧 [ ] や引用符 " を自動削除
     cleanText(val) {
       if (val === null || val === undefined) return '';
       let str = typeof val === 'string' ? val : JSON.stringify(val);
       return str.replace(/[\[\]"]/g, '').trim();
     },
 
-    // URLのクリーニング関数
+    // URLの自動補完 (https://)
     cleanUrl(val) {
-      const cleaned = this.cleanText(val);
-      return cleaned.startsWith('http') ? cleaned : '';
+      let str = this.cleanText(val);
+      if (!str) return '';
+      if (!str.startsWith('http://') && !str.startsWith('https://')) {
+        str = 'https://' + str;
+      }
+      return str;
     },
 
     async fetchEvents() {
-      // ↓ ご自身のGAS URLに書き換えてください
+      // ↓ ご自身の GAS Webアプリ URL に差し替えてください
       const GAS_URL = 'https://script.google.com/macros/s/AKfycbyarH7Ur__WCEiQmqZROgCp1_I2G2hnRkXbRn7ckXQMr5DNutkQN1g7CLBh4Jj2q4iZ/exec';
 
       try {
@@ -96,7 +101,10 @@ export default {
           const stage = this.cleanText(item.stage || item.stages);
           const perk = this.cleanText(item.perk || item.perks);
           const time = this.cleanText(item.time);
-          const xUrl = this.cleanUrl(item.xUrl || item.noticeUrl || item.url);
+          
+          // あらゆる列名に対応して URL を取得
+          const rawUrl = item.xUrl || item.xurl || item.xURL || item.X || item.noticeUrl || item.url || item.link || '';
+          const xUrl = this.cleanUrl(rawUrl);
 
           if (performer || stage || perk || time) {
             grouped[key].groups.push({

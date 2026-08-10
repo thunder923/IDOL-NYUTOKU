@@ -55,7 +55,7 @@
               <span>{{ item.perk }}</span>
             </div>
 
-            <!-- 公式X / 告知リンクボタン（URLがある場合のみ） -->
+            <!-- 公式X / 告知リンクボタン（URLがある場合のみ表示） -->
             <div v-if="item.xUrl" class="mt-3">
               <v-btn
                 outlined
