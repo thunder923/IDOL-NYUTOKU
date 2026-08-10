@@ -2,16 +2,15 @@
   <v-app>
     <v-main>
       <v-container>
-        <!-- ヘッダーエリア（タイトル ＋ 情報提供ボタン） -->
+        <!-- ヘッダーエリア -->
         <div class="d-flex justify-space-between align-center mb-6">
           <h1 class="text-h4 font-weight-bold">イベント一覧</h1>
           
-          <!-- Googleフォームへのリンクボタン -->
           <v-btn
             color="success"
             large
             outlined
-            href="https://forms.gle/Vadx5NWw5fVgk8XDA"
+            href="YOUR_GOOGLE_FORM_URL_HERE"
             target="_blank"
             rel="noopener noreferrer"
             class="font-weight-bold"
@@ -79,25 +78,27 @@ export default {
             };
           }
 
-          // カンマ区切りの文字列または配列を配列化するヘルパー
           const toArr = (v) => typeof v === 'string' ? v.split(',').map(s => s.trim()) : (Array.isArray(v) ? v : []);
 
           const perfList = toArr(item.performers).filter(Boolean);
           const stageList = toArr(item.stages).filter(Boolean);
           const perkList = toArr(item.perks).filter(Boolean);
+          const timeList = toArr(item.time || item.times || item.timeSlot).filter(Boolean);
 
-          const maxLen = Math.max(perfList.length, stageList.length, perkList.length);
+          const maxLen = Math.max(perfList.length, stageList.length, perkList.length, timeList.length);
 
           for (let i = 0; i < maxLen; i++) {
             const p = perfList[i] || perfList[0] || '';
             const s = stageList[i] || stageList[0] || '';
             const k = perkList[i] || perkList[0] || '';
+            const t = timeList[i] || timeList[0] || '';
 
-            if (p || s || k) {
+            if (p || s || k || t) {
               grouped[item.eventName].groups.push({
                 performer: p,
                 stage: s,
-                perk: k
+                perk: k,
+                time: t
               });
             }
           }
