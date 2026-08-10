@@ -2,24 +2,8 @@
   <v-app>
     <v-main>
       <v-container>
-        <!-- ヘッダーエリア：タイトル ＆ 情報提供ボタン -->
-        <div class="d-flex align-center justify-space-between mb-4">
-          <h1 class="text-h4 font-weight-bold">イベント一覧</h1>
-
-          <!-- 情報提供ボタン -->
-          <v-btn
-            :href="FORM_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-            color="primary"
-            elevation="2"
-            rounded
-          >
-            <v-icon left>mdi-pencil-plus</v-icon>
-            情報提供はこちら
-          </v-btn>
-        </div>
-
+        <h1 class="mb-4">イベント一覧</h1>
+        
         <!-- ローディング表示 -->
         <div v-if="loading" class="text-center my-8">
           <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
@@ -53,19 +37,33 @@ export default {
   data() {
     return {
       loading: true,
-      events: [],
-      // ↓ ここにGoogleフォームの短縮URL（https://forms.gle/...）を貼り付けます
-      FORM_URL: 'https://forms.gle/hPycTs6KY5iZ64mZ6'
+      events: []
     };
   },
   mounted() {
     this.fetchEvents();
   },
   methods: {
+    // 謎の [ ] や " を綺麗に掃除する関数
+    cleanText(val) {
+      if (!val) return 'なし';
+      let str = typeof val === 'string' ? val : JSON.stringify(val);
+      str = str.replace(/[\[\]"]/g, '').trim();
+      return str || 'なし';
+    },
+
+    // URL文字列のクリーニング用
+    cleanUrl(val) {
+      if (!val) return '';
+      let str = typeof val === 'string' ? val : JSON.stringify(val);
+      str = str.replace(/[\[\]"]/g, '').trim();
+      return str.startsWith('http') ? str : '';
+    },
+
     async fetchEvents() {
       // ↓ ご自身のGAS URLに書き換えてください
-      const GAS_URL = 'https://script.google.com/macros/s/AKfycbyarH7Ur__WCEiQmqZROgCp1_I2G2hnRkXbRn7ckXQMr5DNutkQN1g7CLBh4Jj2q4iZ/exec';
-
+      const GAS_URL = 'https://script.google.com/macros/s/AKfycbyarH7Ur__WCEiQmqZROgCp1_I2G2hnRkXbRn7ckXQMr5DNutkQN1g7CLBh4Jj2q4iZ/exec;
+      
       try {
         const response = await fetch(GAS_URL);
         const rawData = await response.json();
@@ -73,24 +71,28 @@ export default {
         const grouped = {};
         rawData.forEach(item => {
           if (!item.id && !item.eventName) return;
-
+          
           const key = item.id || item.eventName;
 
           if (!grouped[key]) {
             grouped[key] = {
               id: key,
-              eventName: item.eventName || 'イベント名未設定',
+              eventName: this.cleanText(item.eventName),
               groups: []
             };
           }
 
-          if (item.performers || item.time || item.stages || item.perks || item.url) {
+          const cleanedPerformer = this.cleanText(item.performer || item.performers);
+          const cleanedStage = this.cleanText(item.stage || item.stages);
+          const cleanedPerk = this.cleanText(item.perk || item.perks);
+          const cleanedXUrl = this.cleanUrl(item.xUrl || item.noticeUrl || item.url);
+
+          if (cleanedPerformer !== 'なし' || cleanedStage !== 'なし' || cleanedPerk !== 'なし') {
             grouped[key].groups.push({
-              performers: item.performers || item.performer || '出演者未設定',
-              stages: item.stages || item.stage || 'なし',
-              perks: item.perks || item.perk || 'なし',
-              time: item.time || '',
-              url: item.url || ''
+              performer: cleanedPerformer !== 'なし' ? cleanedPerformer : '出演者未設定',
+              stage: cleanedStage,
+              perk: cleanedPerk,
+              xUrl: cleanedXUrl
             });
           }
         });
