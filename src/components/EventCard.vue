@@ -13,16 +13,34 @@
           :key="index"
           class="mb-2 border rounded"
         >
-          <!-- グループ名 -->
+          <!-- グループ名 ＆ 出演時間 -->
           <v-expansion-panel-header class="font-weight-bold text-subtitle-1 primary--text pa-3">
-            <span>
-              <v-icon color="primary" class="mr-2">mdi-account</v-icon>
-              {{ item.performer }}
-            </span>
+            <div class="d-flex justify-space-between align-center w-100 pr-2">
+              <span>
+                <v-icon color="primary" class="mr-2">mdi-account</v-icon>
+                {{ item.performer }}
+              </span>
+              <v-chip
+                v-if="item.time"
+                small
+                color="amber lighten-4"
+                class="orange--text text--dark-4 font-weight-bold"
+              >
+                <v-icon x-small left color="orange darken-3">mdi-clock-outline</v-icon>
+                {{ item.time }}
+              </v-chip>
+            </div>
           </v-expansion-panel-header>
 
-          <!-- 中身（ステージ & 特典 & URLボタン） -->
+          <!-- 開いた中身 -->
           <v-expansion-panel-content class="pt-2">
+            <div v-if="item.time" class="mb-2 body-1">
+              <span class="font-weight-bold orange--text text--dark-2">
+                <v-icon small color="orange darken-2" class="mr-1">mdi-clock-outline</v-icon>出演時間：
+              </span>
+              <span>{{ item.time }}</span>
+            </div>
+
             <div class="mb-2 body-1">
               <span class="font-weight-bold secondary--text">
                 <v-icon small color="secondary" class="mr-1">mdi-stadium</v-icon>ステージ：
@@ -37,37 +55,19 @@
               <span>{{ item.perk }}</span>
             </div>
 
-            <!-- ボタンエリア -->
-            <div class="d-flex flex-wrap gap-2 mt-3">
-              <!-- 公式X / 告知リンクボタン（データにURLがある場合のみ表示） -->
+            <!-- 公式X / 告知リンクボタン（URLがある場合のみ） -->
+            <div v-if="item.xUrl" class="mt-3">
               <v-btn
-                v-if="item.xUrl"
                 outlined
                 rounded
                 color="primary"
                 small
-                class="mr-2 mb-2"
                 :href="item.xUrl"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <v-icon small class="mr-1">mdi-open-in-new</v-icon>
                 公式X / 告知を開く
-              </v-btn>
-
-              <!-- 情報提供（共通Googleフォームボタン） -->
-              <v-btn
-                outlined
-                rounded
-                color="orange darken-2"
-                small
-                class="mb-2"
-                href="YOUR_GOOGLE_FORM_URL_HERE"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <v-icon small class="mr-1">mdi-file-document-edit-outline</v-icon>
-                情報提供
               </v-btn>
             </div>
           </v-expansion-panel-content>
