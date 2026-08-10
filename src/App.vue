@@ -7,7 +7,7 @@
           <v-btn
             color="primary"
             rounded
-            href="https://docs.google.com/forms/d/e/1FAIpQLSc_YOUR_FORM_ID/viewform"
+            href="https://forms.gle/uoyWWfV6WPnThwtT7"
             target="_blank"
             rel="noopener noreferrer"
           >
