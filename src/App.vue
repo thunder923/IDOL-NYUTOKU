@@ -119,14 +119,10 @@ export default {
               perk: perk || 'なし',
               time: time || '',
               xUrl: xUrl,
-              // Grok自動取得・正規化対応フィールド
+              // 正規化対応フィールド
               perkType: this.cleanText(item.perkType),
               perkDetail: this.cleanText(item.perkDetail),
               perkCount: this.cleanText(item.perkCount),
-              source: this.cleanText(item.source),
-              status: this.cleanText(item.status),
-              confidence: this.cleanText(item.confidence),
-              extractedAt: this.cleanText(item.extractedAt),
               // アーカイブ対応フィールド
               eventDate: eventDate,
               isArchived: archived

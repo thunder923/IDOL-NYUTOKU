@@ -67,15 +67,8 @@ function testNormalizer() {
     perk:       'にゅうとく',
     perkDetail: '指名特典 全員1枚',
     xUrl:       'https://x.com/example/status/123',
-    confidence: 0.95,
-    source:     'x-auto'
+    eventDate:  '2026/10/9',
+    source:     'manual'
   });
   Logger.log(JSON.stringify(rec, null, 2));
-
-  // 信頼度が低い場合は pending になることの確認
-  var low = normalizeRecord({
-    eventName: 'イベントB', performer: 'グループB', perk: 'チェキ',
-    confidence: 0.4, source: 'x-auto'
-  });
-  Logger.log('低信頼度のstatus => ' + low.status + '（confidence=' + low.confidence + '）');
 }

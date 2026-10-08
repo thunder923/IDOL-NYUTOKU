@@ -2,15 +2,18 @@
  * Code.gs — my-circuit-app 用 GAS のエントリーポイント
  *
  * 【エンドポイント】
- *   GET  : 既存の Vue アプリ向けにシート全行を配信（ヘッダー名キーのオブジェクト配列）
- *   POST : action=extract で Xポスト＋画像から抽出 → 正規化 → appendRow
+ *   GET : 既存の Vue アプリ向けにシート全行を配信（ヘッダー名キーのオブジェクト配列）
  *
  * 【補助関数（GASエディタから手動実行）】
  *   setupSheets()       : シートとヘッダー列を自動作成（初回のみ実行）
- *   processQueue()      : 「取得キュー」シートの未処理行を一括抽出（時間トリガー推奨）
  *   archivePastEvents() : 開催日が過ぎたイベントを自動アーカイブ（毎日トリガー推奨）
  *   syncFormResponses() : フォーム回答をシート1へ転記（正規化・id解決・重複チェック付き）
  *   testNormalizer()    : 正規化ロジックの動作確認（Test.gs）
+ *
+ * 【データの入り口】
+ *   - 情報提供フォーム → syncFormResponses()（フォーム送信時トリガー onFormSubmit 推奨）
+ *   - シート1 への直接入力（手動）
+ *   アプリへの表示は doGet（GET）経由。終了イベントは archivePastEvents() で自動非表示。
  */
 
 // ------------------------------------------------------------
@@ -41,146 +44,6 @@ function doGet(e) {
     if (obj.eventName) rows.push(obj);
   }
   return jsonResponse_(rows);
-}
-
-/**
- * POST: 抽出実行
- * リクエスト例（Content-Type: text/plain 推奨。application/json だとプリフライトの都合で失敗し得る）:
- *   {"action":"extract",
- *    "postUrl":"https://x.com/xxx/status/123",
- *    "text":"ポスト本文のコピペ",
- *    "imageUrls":["https://pbs.twimg.com/media/xxx?format=jpg&name=large"]}
- */
-function doPost(e) {
-  var body = {};
-  if (e && e.postData && e.postData.contents) {
-    try {
-      body = JSON.parse(e.postData.contents);
-    } catch (err) {
-      body = e.parameter || {};
-    }
-  } else if (e && e.parameter) {
-    body = e.parameter;
-  }
-
-  var action = body.action || 'extract';
-  if (action !== 'extract') {
-    return jsonResponse_({ ok: false, error: '未対応のactionです: ' + action });
-  }
-
-  var input = {
-    postUrl:   (body.postUrl || '').trim ? body.postUrl.trim() : body.postUrl,
-    text:      body.text || '',
-    imageUrls: Array.isArray(body.imageUrls) ? body.imageUrls : String(body.imageUrls || '').split(',')
-  };
-  input.imageUrls = input.imageUrls.map(function (u) { return String(u).trim(); })
-                                      .filter(function (u) { return !!u; });
-
-  if (!input.postUrl && !input.text && input.imageUrls.length === 0) {
-    return jsonResponse_({ ok: false, error: 'postUrl / text / imageUrls のいずれかが必要です' });
-  }
-
-  try {
-    var result = extractAndSave(input);
-    return jsonResponse_(result);
-  } catch (err) {
-    return jsonResponse_({ ok: false, error: String(err && err.message || err) });
-  }
-}
-
-// ------------------------------------------------------------
-// 抽出 → 正規化 → 保存
-// ------------------------------------------------------------
-
-/**
- * Grok で抽出し、正規化してシートへ追記する。
- * 重複（イベント名＋グループ名＋特典名が一致）はスキップする。
- */
-function extractAndSave(input) {
-  var records = extractFromX(input);
-  if (!records.length) {
-    return { ok: false, error: '抽出できる出演情報がありませんでした（events が空です）', results: [] };
-  }
-
-  var sheet = getSheet_();
-  ensureHeaderRow_(sheet, CONFIG.COLUMNS);
-
-  var saved = 0;
-  var skipped = 0;
-  var results = records.map(function (rec) {
-    // id が無ければ採番（App.vue のグルーピングキー用）
-    if (!rec.id) {
-      rec.id = 'x-' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMddHHmmss') +
-               '-' + Math.floor(Math.random() * 1000);
-    }
-    rec.extractedAt = rec.extractedAt || new Date();
-
-    if (isDuplicate_(sheet, rec)) {
-      skipped++;
-      return Object.assign({}, rec, { saved: false, duplicate: true });
-    }
-    appendRow_(sheet, rec);
-    saved++;
-    return Object.assign({}, rec, { saved: true, duplicate: false });
-  });
-
-  return {
-    ok: true,
-    extracted: records.length,
-    saved: saved,
-    skippedDuplicate: skipped,
-    results: results
-  };
-}
-
-// ------------------------------------------------------------
-// キュー処理（時間主導トリガーで定期実行）
-// ------------------------------------------------------------
-
-/**
- * 「取得キュー」シートの未処理行（status が空 or waiting）を順に抽出する。
- * 列: postUrl | text | imageUrls（カンマ区切り）| status | result | createdAt
- * 推奨トリガー: 5分おき等の時間主導トリガー
- */
-function processQueue() {
-  var ss = getSpreadsheet_();
-  var q = ss.getSheetByName(CONFIG.QUEUE_SHEET_NAME);
-  if (!q) {
-    Logger.log('取得キューシートがありません: ' + CONFIG.QUEUE_SHEET_NAME);
-    return;
-  }
-  var values = q.getDataRange().getValues();
-  if (values.length <= 1) return;
-
-  var headers = values[0];
-  var col = {};
-  headers.forEach(function (h, i) { col[h] = i; });
-
-  var processed = 0;
-  for (var i = 1; i < values.length; i++) {
-    var status = String(values[i][col.status] || '').trim();
-    if (status === 'done' || status === 'error') continue;
-
-    var input = {
-      postUrl:   String(values[i][col.postUrl] || '').trim(),
-      text:      String(values[i][col.text] || '').trim(),
-      imageUrls: String(values[i][col.imageUrls] || '').split(',')
-                   .map(function (u) { return u.trim(); })
-                   .filter(function (u) { return !!u; })
-    };
-    if (!input.postUrl && !input.text && input.imageUrls.length === 0) continue;
-
-    try {
-      var result = extractAndSave(input);
-      q.getRange(i + 1, col.status + 1).setValue(result.ok ? 'done' : 'error');
-      q.getRange(i + 1, col.result + 1).setValue(JSON.stringify(result));
-    } catch (err) {
-      q.getRange(i + 1, col.status + 1).setValue('error');
-      q.getRange(i + 1, col.result + 1).setValue(String(err && err.message || err));
-    }
-    processed++;
-  }
-  Logger.log('processQueue: ' + processed + ' 件処理しました');
 }
 
 // ------------------------------------------------------------
@@ -310,11 +173,7 @@ function setupSheets() {
   if (!sheet) sheet = ss.insertSheet(CONFIG.SHEET_NAME);
   ensureHeaderRow_(sheet, CONFIG.COLUMNS);
 
-  var q = ss.getSheetByName(CONFIG.QUEUE_SHEET_NAME);
-  if (!q) q = ss.insertSheet(CONFIG.QUEUE_SHEET_NAME);
-  ensureHeaderRow_(q, CONFIG.QUEUE_COLUMNS);
-
-  Logger.log('セットアップ完了: ' + CONFIG.SHEET_NAME + ' / ' + CONFIG.QUEUE_SHEET_NAME);
+  Logger.log('セットアップ完了: ' + CONFIG.SHEET_NAME);
 }
 
 // ------------------------------------------------------------

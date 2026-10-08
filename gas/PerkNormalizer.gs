@@ -1,7 +1,7 @@
 /**
  * PerkNormalizer.gs — 入場特典（にゅうとく）情報の表記揺れ吸収・正規化ユーティリティ
  *
- * Grok 抽出結果・手動入力・Googleフォーム入力のすべてをこの関数で正規化し、
+ * 手動入力・Googleフォーム入力のすべてをこの関数で正規化し、
  * スプレッドシートへは統一フォーマットで保存する。
  *
  * 【吸収する表記揺れの例】
@@ -179,21 +179,20 @@ function normalizeEventName(name) {
 }
 
 // ------------------------------------------------------------
-// レコード全体の正規化（Grok抽出結果・手動入力の共通入口）
+// レコード全体の正規化（手動入力・フォーム入力の共通入口）
 // ------------------------------------------------------------
 
 /**
  * 1件の出演情報レコードを正規化して返す。
  * 入力: { eventName, performer, stage, time, perk, perkDetail, xUrl,
- *        source, confidence, status, extractedAt, note, ... }
+ *        source, note, eventDate, isArchived, ... }
  */
 function normalizeRecord(rec) {
   rec = rec || {};
   var perkText = [rec.perk || '', rec.perkDetail || rec.perkNote || ''].join(' ');
   var countInfo = extractPerkCount(perkText);
-  var conf = parseFloat(rec.confidence);
 
-  var out = {
+  return {
     eventName:   normalizeEventName(rec.eventName),
     performer:   String(rec.performer || '').replace(/\s+/g, ' ').trim(),
     stage:       String(rec.stage || '').replace(/\s+/g, ' ').trim(),
@@ -204,18 +203,8 @@ function normalizeRecord(rec) {
     perkCount:   countInfo.count,
     xUrl:        String(rec.xUrl || '').trim(),
     source:      rec.source || 'manual',
-    confidence:  isNaN(conf) ? null : conf,
-    extractedAt: rec.extractedAt || '',
     note:        String(rec.note || '').trim(),
     eventDate:   normalizeEventDate_(rec.eventDate),
     isArchived:  String(rec.isArchived || '').trim()
   };
-
-  // 信頼度がしきい値未満のものは「要確認」としてマーク（人間のチェック待ち）
-  if (out.confidence !== null && out.confidence < CONFIG.CONFIDENCE_THRESHOLD) {
-    out.status = 'pending';
-  } else {
-    out.status = rec.status || 'confirmed';
-  }
-  return out;
 }

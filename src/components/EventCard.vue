@@ -87,40 +87,6 @@
               <span v-if="item.perkDetail" class="ml-1 grey--text text--darken-1">（{{ item.perkDetail }}）</span>
             </div>
 
-            <!-- 取得元・ステータス（Grok自動取得データ向け） -->
-            <div class="d-flex flex-wrap mb-2" style="gap: 6px;">
-              <v-chip
-                v-if="item.source === 'x-auto'"
-                x-small
-                color="deep-purple lighten-4"
-                class="deep-purple--text text--darken-3 font-weight-bold"
-              >
-                <v-icon x-small left>mdi-robot</v-icon>
-                Grok自動取得
-              </v-chip>
-              <v-chip
-                v-else-if="item.source === 'manual'"
-                x-small
-                color="blue-grey lighten-4"
-                class="blue-grey--text text--darken-2"
-              >
-                <v-icon x-small left>mdi-account</v-icon>
-                手動登録
-              </v-chip>
-              <v-chip
-                v-if="item.status === 'pending'"
-                x-small
-                color="amber lighten-3"
-                class="orange--text text--darken-4 font-weight-bold"
-              >
-                <v-icon x-small left>mdi-alert</v-icon>
-                要確認（信頼度 {{ item.confidence }}）
-              </v-chip>
-            </div>
-            <div v-if="item.extractedAt" class="caption grey--text mb-2">
-              抽出日時: {{ item.extractedAt }}
-            </div>
-
             <!-- 公式X / 告知リンクボタン（URLがある場合のみ表示） -->
             <div v-if="item.xUrl" class="mt-3">
               <v-btn

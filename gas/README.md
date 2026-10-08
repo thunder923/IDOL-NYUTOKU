@@ -1,30 +1,23 @@
 # ⚙️ GAS（Google Apps Script）側 実装ガイド
 
-X（旧Twitter）の告知ポスト＋フライヤー画像から、xAI **Grok** のマルチモーダル機能で
-「イベント名 / グループ名 / ステージ / 時間 / 入場特典」を JSON 抽出し、
-表記揺れを吸収・正規化した上でスプレッドシートへ自動保存する仕組みです。
+入特情報の**入力支援（フォーム転記）＋ 表記揺れの正規化 ＋ 終了イベントの自動アーカイブ**を行う仕組みです。
+データは「情報提供フォーム」または「シート1 への直接入力」から入り、アプリは GAS（GET）経由で表示します。
 
 ## 📂 ファイル構成
 
 ```text
 gas/
 ├── appsscript.json     # マニフェスト（タイムゾーン: Asia/Tokyo / V8 / Webアプリ公開設定）
-├── Config.gs           # 設定（Grokモデル・シート列名・信頼度しきい値など）
-├── PerkNormalizer.gs   # 表記揺れ吸収・正規化（にゅうとく/指名/目当て/枚数/時間表記など）
-├── GrokService.gs      # xAI Grok API 呼び出し＋抽出プロンプト
-├── Code.gs             # doGet / doPost / processQueue / setupSheets
+├── Config.gs           # 設定（シート名・列名・ヘッダー別名辞書など）
+├── PerkNormalizer.gs   # 表記揺れ吸収・正規化（にゅうとく/指名/目当て/写メ/枚数/時間/開催日など）
+├── Code.gs             # doGet / archivePastEvents / syncFormResponses / setupSheets
 ├── Test.gs             # 正規化ロジックの動作確認（APIキー不要）
 └── README.md           # このファイル
 ```
 
 ## 🚀 セットアップ手順
 
-### 1. xAI の APIキーを発行
-
-1. <https://x.ai/api> にアクセスし、アカウント作成＆APIキーを発行
-2.課金設定を行う（Grok API は従量課金。vision 抽出は1回あたり数円〜十数円程度）
-
-### 2. GAS プロジェクトを作成
+### 1. GAS プロジェクトを作成
 
 **方法A（推奨）: スプレッドシートに紐付け（コンテナバインド）**
 
@@ -44,7 +37,7 @@ gas/
 
 > ⚠️ **id は「イベント単位」で採番・共有**されています（例: HYPE IDOL ! Summer の全行が id=5）。
 > 行ごとにユニーク id を振るとアプリのイベントグルーピングが壊れるため、
-> Grok 抽出時は `イベントマスター` から eventName を引いて同じ id を再利用します（`resolveEventId_`）。
+> フォーム転記時は `イベントマスター` から eventName を引いて同じ id を再利用します（`resolveEventId_`）。
 > ヘッダー名は日本語でもOK（`Config.gs` の `HEADER_ALIASES` で吸収。例: `会場`→stage, `入場特典`→perks）。
 
 **方法B: スタンドアロン（別プロジェクト）の場合**
@@ -52,38 +45,36 @@ gas/
 1. <https://script.google.com/> で「新しいプロジェクト」
 2. 後述のスクリプトプロパティ `SHEET_ID` にスプレッドシートのIDを設定する
 
-### 3. ファイルをコピー
+### 2. ファイルをコピー
 
 このリポジトリの `gas/` 内のファイルを、GASエディタにそのまま貼り付ける
 （ファイル名はそのまま。`appsscript.json` は「プロジェクトの設定 >
 「マニフェスト ファイルをエディタで表示する」をONにしてから貼り付け）
 
-### 4. スクリプトプロパティを設定
+### 3. スクリプトプロパティを設定（方法Bの場合のみ）
 
 GASエディタ > **プロジェクトの設定 > スクリプト プロパティ** に以下を追加:
 
 | プロパティ | 値 | 必須 |
 |---|---|---|
-| `XAI_API_KEY` | xAI で発行したAPIキー | ✅ 必須 |
-| `SHEET_ID` | スプレッドシートのID（URLの `/d/` の後ろの文字列） | 方法Bの場合必須 |
+| `SHEET_ID` | スプレッドシートのID（URLの `/d/` の後ろの文字列） | 方法Bの場合のみ |
 
-### 5. 初期セットアップを実行
+### 4. 初期セットアップを実行
 
 GASエディタで `setupSheets` を選んで ▶ 実行（初回承認が必要）
 
 - メインシート `シート1` に不足している列を自動追加
-  （`perkType / perkDetail / perkCount / source / status / confidence / extractedAt / note / eventDate / isArchived`）
-- `取得キュー` シートを作成
+  （`perkType / perkDetail / perkCount / source / note / eventDate / isArchived`）
 
 > 💡 シート名・列名を変えたい場合は `Config.gs` の `SHEET_NAME` / `COLUMNS` を編集してください。
 > 既存データ（id / eventName / performer / stage / perks ...）はそのまま使えます。
 
-### 6. 動作確認（APIキー不要）
+### 5. 動作確認（APIキー不要）
 
 GASエディタで `testNormalizer` を実行し、**表示 > ログ** を確認。
 表記揺れが正しく吸収されているかチェックできます。
 
-### 7. Webアプリとしてデプロイ
+### 6. Webアプリとしてデプロイ
 
 1. 右上 **デプロイ > 新しいデプロイ**
 2. 種類: **ウェブアプリ**
@@ -91,81 +82,19 @@ GASエディタで `testNormalizer` を実行し、**表示 > ログ** を確認
 4. デプロイして発行された `https://script.google.com/macros/s/.../exec` URL を控える
 5. フロント（`src/App.vue` の `GAS_URL`）がこのURLを指していることを確認
 
-## 📥 使い方
+### 7. トリガーを設定
 
-### POST で直接抽出（単発）
+GASエディタ > **トリガー**（時計アイコン）:
 
-```bash
-curl -L -X POST '【デプロイURL】' \
-  -H 'Content-Type: text/plain;charset=UTF-8' \
-  -d '{
-    "action": "extract",
-    "postUrl": "https://x.com/example/status/1234567890",
-    "text": "【告知】〇〇アイドルフェス Day1 開催！開場10:00...",
-    "imageUrls": ["https://pbs.twimg.com/media/XXXX?format=jpg&name=large"]
-  }'
-```
-
-> ⚠️ `Content-Type: application/json` だとプリフライト(CORS preflight)の都合で
-> 失敗する場合があります。**`text/plain` でJSON文字列を送る** のが確実です。
-
-レスポンス例:
-
-```json
-{
-  "ok": true,
-  "extracted": 2,
-  "saved": 2,
-  "skippedDuplicate": 0,
-  "results": [
-    {
-      "eventName": "〇〇アイドルフェス2026 Day1",
-      "performer": "グループA",
-      "stage": "メインステージ",
-      "time": "開場 10:00",
-      "perk": "入場特典",
-      "perkType": "指名特典",
-      "perkDetail": "全員1枚",
-      "perkCount": 1,
-      "source": "x-auto",
-      "confidence": 0.95,
-      "status": "confirmed",
-      "saved": true,
-      "duplicate": false
-    }
-  ]
-}
-```
-
-### バッチ運用（取得キュー＋トリガー）
-
-毎回 curl する代わりに、`取得キュー` シートに行を登録するだけでOK:
-
-| postUrl | text | imageUrls（カンマ区切り） | status | result | createdAt |
-|---|---|---|---|---|---|
-| https://x.com/.../status/123 | 本文テキスト | https://pbs.twimg.com/... | | | 2026-10-09 12:00 |
-
-- GASエディタ > **トリガー**（時計アイコン）> `processQueue` を **5分おき** 等で設定
-- 未処理行が自動で抽出され、`status` が `done` / `error` に更新される
-
-## 🖼️ X の画像URLの取得方法
-
-Grok が画像を直接読めるのは **公開されている直リンクURL** のみです。
-ポストのURLだけでは中身を確実に読めないため、以下のいずれかを渡してください。
-
-1. **ポスト本文テキスト**（コピペ）— 最も確実
-2. **画像の直リンク**: X で画像を開く → 画像を右クリック → 「画像のアドレスをコピー」
-   → 末尾に `?format=jpg&name=large` を付ける（例: `https://pbs.twimg.com/media/XXX?format=jpg&name=large`）
+| 関数 | イベント | 頻度 | 役割 |
+|---|---|---|---|
+| `onFormSubmit` | **フォーム送信時** | 送信のたび | フォーム回答をシート1へ自動転記 |
+| `archivePastEvents` | 時間主導 | **毎日** | 開催日が過ぎたイベントを自動アーカイブ |
 
 ## 📮 フォーム回答の自動転記（情報提供フォーム）
 
 Google フォームの回答（`フォームの回答 1`）を、正規化・イベントid解決・重複チェック付きで
 `シート1` へ自動転記する `syncFormResponses()` を用意しています。
-
-**セットアップ（いずれか）**
-
-- **フォーム送信時トリガー（推奨）**: GASエディタ > トリガー > イベント: **フォーム送信時** / 関数: `onFormSubmit`
-- または **5分おき等の時間トリガー** で `syncFormResponses` を実行
 
 **動作**
 
@@ -179,7 +108,7 @@ Google フォームの回答（`フォームの回答 1`）を、正規化・イ
 
 **実フォーム構成（2026-10-09 更新済み）との対応**
 
-| フォームの質問（列名） | 変換先 |備考 |
+| フォームの質問（列名） | 変換先 | 備考 |
 |---|---|---|
 | 開催日（date型） | eventDate | 自動アーカイブの判定に使用 |
 | イベント名(無ければその他に) | eventName | 長い列名も前方一致で吸収 |
@@ -187,7 +116,7 @@ Google フォームの回答（`フォームの回答 1`）を、正規化・イ
 | 出演時間 (00:00〜00:20)で記入… | time | `開場10:00` 等に正規化 |
 | ステージ | stage | |
 | 入場特典 (なしと不明も記入かつ…) | perks | 特典種別は自動判定して perkType に保存 |
-| 告知URL | xUrl | |
+| 告知URL | xUrl | アプリの「公式X / 告知を開く」ボタンに反映 |
 
 **残りの改善おすすめ（任意）**
 
@@ -235,16 +164,10 @@ Google フォームの回答（`フォームの回答 1`）を、正規化・イ
 | 開場10:00 / 開場 10時 / 開場１０：００ | 開場 10:00 |
 | 全員1枚 / 各2枚 / ランダム3種から1枚 | perkCount / perkDetail に分離 |
 
-- **信頼度が 0.8 未満** の抽出結果は `status=pending`（アプリに「要確認」バッジ表示）
-- **重複**（イベント名＋グループ名＋特典名が一致）は自動スキップ
-
-## 💰 概算コスト
-
-- Grok API: 従量課金（vision 抽出 1回あたり数円〜十数円程度。モデル・料金は xAI の最新情報を参照）
-- GAS / スプレッドシート: 無料枠内で運用可能（UrlFetchApp の呼び出し上限に注意）
+- **重複**（イベント名＋グループ名＋特典名が一致）は転記時に自動スキップ
 
 ## ⚠️ 注意事項
 
-- Grok の抽出は 100% 正確ではありません。`status=pending` の行は人間が確認してください。
-- X の利用規約を守り、取得は告知情報の記録目的に限定してください。
-- APIキーはスクリプトプロパティに保存し、**絶対にコードやリポジトリに平文で書かない** こと。
+- 正規化はルールベースのため、特殊な書き方は `その他` 扱いになる場合があります。
+ 気になる表記があれば `Config.gs`（フロントは `src/utils/perk.js`）の辞書に追加してください。
+- GAS / スプレッドシートは無料枠内で運用できます。
