@@ -1,8 +1,29 @@
 <template>
-  <v-card class="mb-4" outlined elevation="2">
+  <v-card class="mb-4" outlined elevation="2" :style="event.archived ? 'opacity: 0.65;' : ''">
     <!-- ライブ名（イベント名） -->
     <v-card-title class="primary white--text text-h5 font-weight-bold py-3">
-      {{ event.eventName }}
+      <div class="d-flex align-center flex-wrap" style="gap: 8px;">
+        <span>{{ event.eventName }}</span>
+        <v-chip
+          v-if="event.eventDate"
+          small
+          color="white"
+          text-color="primary"
+          class="font-weight-bold"
+        >
+          <v-icon x-small left>mdi-calendar</v-icon>
+          {{ event.eventDate }}
+        </v-chip>
+        <v-chip
+          v-if="event.archived"
+          small
+          color="grey darken-2"
+          class="white--text font-weight-bold"
+        >
+          <v-icon x-small left>mdi-archive</v-icon>
+          アーカイブ（終了）
+        </v-chip>
+      </div>
     </v-card-title>
 
     <v-card-text class="pa-3">
@@ -52,7 +73,52 @@
               <span class="font-weight-bold success--text">
                 <v-icon small color="success" class="mr-1">mdi-gift</v-icon>入場特典：
               </span>
+              <v-chip
+                v-if="hasPerk(item)"
+                x-small
+                :color="perkStyle(item).color"
+                :class="perkStyle(item).textClass"
+                class="mr-2 font-weight-bold"
+              >
+                <v-icon x-small left>{{ perkStyle(item).icon }}</v-icon>
+                {{ perkLabel(item) }}
+              </v-chip>
               <span>{{ item.perk }}</span>
+              <span v-if="item.perkDetail" class="ml-1 grey--text text--darken-1">（{{ item.perkDetail }}）</span>
+            </div>
+
+            <!-- 取得元・ステータス（Grok自動取得データ向け） -->
+            <div class="d-flex flex-wrap mb-2" style="gap: 6px;">
+              <v-chip
+                v-if="item.source === 'x-auto'"
+                x-small
+                color="deep-purple lighten-4"
+                class="deep-purple--text text--darken-3 font-weight-bold"
+              >
+                <v-icon x-small left>mdi-robot</v-icon>
+                Grok自動取得
+              </v-chip>
+              <v-chip
+                v-else-if="item.source === 'manual'"
+                x-small
+                color="blue-grey lighten-4"
+                class="blue-grey--text text--darken-2"
+              >
+                <v-icon x-small left>mdi-account</v-icon>
+                手動登録
+              </v-chip>
+              <v-chip
+                v-if="item.status === 'pending'"
+                x-small
+                color="amber lighten-3"
+                class="orange--text text--darken-4 font-weight-bold"
+              >
+                <v-icon x-small left>mdi-alert</v-icon>
+                要確認（信頼度 {{ item.confidence }}）
+              </v-chip>
+            </div>
+            <div v-if="item.extractedAt" class="caption grey--text mb-2">
+              抽出日時: {{ item.extractedAt }}
             </div>
 
             <!-- 公式X / 告知リンクボタン（URLがある場合のみ表示） -->
@@ -78,12 +144,29 @@
 </template>
 
 <script>
+import { perkTypeStyle, normalizePerkType } from '../utils/perk';
+
 export default {
   name: 'EventCard',
   props: {
     event: {
       type: Object,
       required: true
+    }
+  },
+  methods: {
+    // 特典種別に応じたバッジスタイル（GAS側で正規化済みだが手動入力の揺れも吸収）
+    perkStyle(item) {
+      const text = (item.perkType ? item.perkType + ' ' : '') + (item.perk || item.perks || '');
+      return perkTypeStyle(text);
+    },
+    // バッジのラベル（GASの正規化済み種別を優先し、手動データはその場で判定）
+    perkLabel(item) {
+      return item.perkType || normalizePerkType(item.perk || item.perks);
+    },
+    hasPerk(item) {
+      const perk = item.perk || item.perks || '';
+      return !!perk && perk !== 'なし';
     }
   }
 };
