@@ -10,6 +10,10 @@ export default defineConfig({
     },
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
   },
+  server: {
+    // Arena プレビュー環境（*.e2b.app）からのアクセスを許可
+    allowedHosts: ['.e2b.app'],
+  },
   build: {
     sourcemap: false,
   },

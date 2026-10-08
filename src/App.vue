@@ -84,6 +84,10 @@ export default {
 
         const grouped = {};
         rawData.forEach(item => {
+          // アーカイブ済み（終了イベント）はデフォルト非表示。トグルONで表示
+          const archived = this.isArchivedFlag(item.isArchived);
+          if (archived && !this.showArchived) return;
+
           const eventName = this.cleanText(item.eventName);
           if (!eventName) return;
 
@@ -93,6 +97,7 @@ export default {
             grouped[key] = {
               id: key,
               eventName: eventName,
+              eventDate: '',
               groups: []
             };
           }
@@ -101,7 +106,8 @@ export default {
           const stage = this.cleanText(item.stage || item.stages);
           const perk = this.cleanText(item.perk || item.perks);
           const time = this.cleanText(item.time);
-          
+          const eventDate = this.cleanText(item.eventDate);
+
           // あらゆる列名に対応して URL を取得
           const rawUrl = item.xUrl || item.xurl || item.xURL || item.X || item.noticeUrl || item.url || item.link || '';
           const xUrl = this.cleanUrl(rawUrl);
@@ -112,12 +118,27 @@ export default {
               stage: stage || 'なし',
               perk: perk || 'なし',
               time: time || '',
-              xUrl: xUrl
+              xUrl: xUrl,
+              // 正規化対応フィールド
+              perkType: this.cleanText(item.perkType),
+              perkDetail: this.cleanText(item.perkDetail),
+              perkCount: this.cleanText(item.perkCount),
+              // アーカイブ対応フィールド
+              eventDate: eventDate,
+              isArchived: archived
             });
+            // イベント単位の開催日は最初に見つかったものを採用
+            if (!grouped[key].eventDate && eventDate) {
+              grouped[key].eventDate = eventDate;
+            }
           }
         });
 
-        this.events = Object.values(grouped);
+        this.events = Object.values(grouped).map(event => ({
+          ...event,
+          // イベントがアーカイブ済みかどうか（全グループがアーカイブ済みの場合）
+          archived: event.groups.length > 0 && event.groups.every(g => g.isArchived)
+        }));
 
       } catch (error) {
         console.error('データの取得に失敗しました:', error);
